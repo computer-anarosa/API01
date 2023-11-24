@@ -31,7 +31,7 @@ def prefix_remove(prefix, data):
     return new_data
 
 
-@app.route("/items", methods=["GET"])
+@app.route("/owners", methods=["GET"])
 def get_all():
 
     # Obtém todos os registros válidos de 'item'.
@@ -52,7 +52,7 @@ def get_all():
 
         # Executa o SQL.
         cursor.execute(
-            "SELECT * FROM item WHERE item_status = 'on' ORDER BY item_date DESC")
+            "SELECT * FROM owner WHERE owner_status != 'off' ORDER BY owner_name ASC")
 
         # Retorna todos os resultados da consulta para 'items_rows'.
         items_rows = cursor.fetchall()
@@ -71,7 +71,7 @@ def get_all():
         if items:
 
             # Remove prefixos dos campos.
-            new_items = [prefix_remove('item_', item) for item in items]
+            new_items = [prefix_remove('owner_', item) for item in items]
 
             # Se houver registros, retorna tudo.
             return new_items, 200
@@ -86,7 +86,7 @@ def get_all():
         return {"error": f"Erro inesperado: {str(error)}"}, 500
 
 
-@app.route("/items/<int:id>", methods=["GET"])
+@app.route("/owners/<int:id>", methods=["GET"])
 def get_one(id):
 
     # Obtém um registro único de 'item', identificado pelo 'id'.
@@ -102,7 +102,7 @@ def get_one(id):
 
         # Executa o SQL.
         cursor.execute(
-            "SELECT * FROM item WHERE item_id = ? AND item_status = 'on'", (id,))
+            "SELECT * FROM owner WHERE owner_id = ? AND owner_status != 'off'", (id,))
 
         # Retorna o resultado da consulta para 'item_row'.
         item_row = cursor.fetchone()
@@ -117,7 +117,7 @@ def get_one(id):
             item = dict(item_row)
 
             # Remove prefixos dos campos.
-            new_item = prefix_remove('item_', item)
+            new_item = prefix_remove('owner_', item)
 
             # Retorna item.
             return new_item, 200
@@ -132,7 +132,7 @@ def get_one(id):
         return {"error": f"Erro inesperado: {str(error)}"}, 500
 
 
-@app.route('/items', methods=["POST"])
+@app.route('/owners', methods=["POST"])
 def create():
 
     # Cadastra um novo registro em 'item'.
@@ -151,14 +151,14 @@ def create():
         cursor = conn.cursor()
 
         # Query que insere um novo registro na tabela 'item'.
-        sql = "INSERT INTO item (item_name, item_description, item_location, item_owner) VALUES (?, ?, ?, ?)"
+        sql = "INSERT INTO owner (owner_name, owner_birth, owner_email, owner_password) VALUES (?, ?, ?, ?)"
 
         # Dados a serem inseridos, obtidos do request.
         sql_data = (
             new_item['name'],
-            new_item['description'],
-            new_item['location'],
-            new_item['owner']
+            new_item['birth'],
+            new_item['email'],
+            new_item['password']
         )
 
         # Executa a query, fazendo as devidas substituições dos curingas (?) pelos dados (sql_data).
@@ -189,7 +189,7 @@ def create():
 
 
 
-@app.route("/items/<int:id>", methods=["DELETE"])
+@app.route("/owners/<int:id>", methods=["DELETE"])
 def delete(id):
 
     # Marca, como apagado, um registro único de 'item', identificado pelo 'id'.
@@ -206,7 +206,7 @@ def delete(id):
         cursor = conn.cursor()
         
         # Executa o SQL.
-        sql = "SELECT item_id FROM item WHERE item_id = ? AND item_status != 'off'"
+        sql = "SELECT owner_id FROM owner WHERE owner_id = ? AND owner_status != 'off'"
         
         # Executa a query.
         cursor.execute(sql, (id,))
@@ -216,7 +216,7 @@ def delete(id):
         # Se o registro existe...
         if item_row:
          # Query para atualizar o item no banco de dados.
-         sql = "UPDATE item SET item_status = 'off' WHERE item_id = ?"
+         sql = "UPDATE owner SET owner_status = 'off' WHERE owner_id = ?"
         
          # Executa a query
          cursor.execute(sql, (id,))
@@ -249,7 +249,7 @@ def delete(id):
         return {"error": f"Erro inesperado: {str(error)}"}, 500
 
 
-@app.route("/items/<int:id>", methods=["PUT", "PATCH"])
+@app.route("/owners/<int:id>", methods=["PUT", "PATCH"])
 def edit(id):
 
     # Edita um registro em 'item', identificado pelo 'id'.
@@ -271,10 +271,10 @@ def edit(id):
         
         # Loop para atualizar os campos específicos do registro na tabela 'item'.
         # Observe que o prefixo 'item_' é adicionado ao(s) nome(s) do(s) campo(s).
-        set_clause = ', '.join([f"item_{key} = ?" for key in item_json.keys()])
+        set_clause = ', '.join([f"owner_{key} = ?" for key in item_json.keys()])
         
         # Monta SQL com base nos campos a serem atualizados.
-        sql = f"UPDATE item SET {set_clause} WHERE item_id = ? AND item_status = 'on'"
+        sql = f"UPDATE owner SET {set_clause} WHERE owner_id = ? AND owner_status = 'on'"
         cursor.execute(sql, (*item_json.values(), id))
        
        # Commit para salvar as alterações.
@@ -291,8 +291,46 @@ def edit(id):
 
     except Exception as e:  # Outros erros.
         return {"error": f"Erro inesperado: {str(e)}"}, 500  
-    
 
+@app.route("/owners/<int:user_id>", methods=["GET"])    
+def listar_itens_usuario(user_id):
+    try:
+     conn = sqlite3.connect(database)
+     conn.row_factory = sqlite3.Row
+     cursor = conn.cursor()
+        
+     sql = "SELECT * FROM item WHERE item_status != 'off' AND item_owner = ?"
+     
+     cursor.execute(sql, (user_id,))
+     
+     item_row = cursor.fetchone()
+     
+     conn.commit()
+     
+     conn.close()
+     
+      # Se o registro existe...
+     if item_row:
+            # Converte SQLite.Row para dicionário e armazena em 'item'.
+            item = dict(item_row)
+
+            # Remove prefixos dos campos.
+            new_item = prefix_remove('owner_', item)
+
+            # Retorna item.
+            return new_item, 200
+     else:
+            # Se não encontrar o registro, retorna erro.
+            return {"error": "Item não encontrado"}, 404
+
+     
+    except sqlite3.Error as e:  # Erro ao processar banco de dados.
+     return {"error": f"Erro ao acessar o banco de dados: {str(e)}"}, 500
+
+    except Exception as e:  # Outros erros.
+        return {"error": f"Erro inesperado: {str(e)}"}, 500   
+    
+     
 # Roda aplicativo Flask.
 if __name__ == "__main__":
     app.run(debug=True)
