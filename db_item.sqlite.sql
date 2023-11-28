@@ -2,6 +2,7 @@
 -- CUIDADO! Isso destrói todo o banco de dados.
 DROP TABLE IF EXISTS item;
 DROP TABLE IF EXISTS owner;
+DROP TABLE IF EXISTS contact;
 
 -- Cria a table 'owner'.
 CREATE TABLE owner (
@@ -52,3 +53,14 @@ VALUES
     ('2023-1-06 14:30:00', 'Item 4', 'Description for Item 4', 'Location D', 4, 'on'),
     ('2023-2-06 14:30:00', 'Item 5', 'Description for Item 5', 'Location E', 5, 'on');
 
+
+-- Cria a tabela 'contacts'.
+CREATE TABLE contact (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	date DATETIME DEFAULT CURRENT_TIMESTAMP,
+	name TEXT,
+	email TEXT,
+	subject TEXT,
+	message TEXT,
+	status TEXT DEFAULT 'received'
+);
